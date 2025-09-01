@@ -2,7 +2,7 @@ import json
 import fitz  # PyMuPDF
 from pathlib import Path
 
-TEMPLATE = 'Formulaire_EC_template.pdf'  # votre modèle
+TEMPLATE = 'Formulaire_EC_template.pdf'  #
 INPUT_JSON = 'ec_data.json'              # données collaborateurs
 OUTPUT_DIR = Path('ec_outputs')
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
@@ -39,31 +39,44 @@ FIELD_MAP = {
     'Poste': 'poste',
     'Service': 'service',
     'Taux': 'taux',
-    'PERNR': 'pernr',
+    'PERNR': 'salarie_num',
     'DATE_PERIODE_DU_af_date': 'periode_du',
     'DATE_PERIODE_AU_af_date': 'periode_au',
     'DATE_ENTRETIEN_af_date': 'date_entretien',
     'Motif/période de référence': 'motif',
 
     # Points clés (zone commentaires)
-    'COM_BILAN': 'point3_buts_responsabilites',
+    'COM_03_A01': 'point3_buts_01',
+    'COM_03_A02': 'point3_buts_02',
+    'COM_03_A03': 'point3_buts_03',
+    'COM_03_A04': 'point3_buts_04',
 
     # Compétences (10 lignes commentées; étendre si vous voulez couvrir plus)
-    'COM_COMP_01': 'point4_comp_01',
-    'COM_COMP_02': 'point4_comp_02',
-    'COM_COMP_03': 'point4_comp_03',
-    'COM_COMP_04': 'point4_comp_04',
-    'COM_COMP_05': 'point4_comp_05',
-    'COM_COMP_06': 'point4_comp_06',
-    'COM_COMP_07': 'point4_comp_07',
-    'COM_COMP_08': 'point4_comp_08',
-    'COM_COMP_09': 'point4_comp_09',
-    'COM_COMP_10': 'point4_comp_10',
+    'COMP_FAM_01': 'point4_comp_01_cat',
+    'COMP_LNG_01': 'point4_comp_01_comp',
+    'COMP_FAM_02': 'point4_comp_02_cat',
+    'COMP_LNG_02': 'point4_comp_02_comp',
+    'COMP_FAM_03': 'point4_comp_03_cat',
+    'COMP_LNG_03': 'point4_comp_03_comp',
+    'COMP_FAM_04': 'point4_comp_04_cat',
+    'COMP_LNG_04': 'point4_comp_04_comp',
+    'COMP_FAM_05': 'point4_comp_05_cat',
+    'COMP_LNG_05': 'point4_comp_05_comp',
+    'COMP_FAM_06': 'point4_comp_06_cat',
+    'COMP_LNG_06': 'point4_comp_06_comp',
+    'COMP_FAM_07': 'point4_comp_07_cat',
+    'COMP_LNG_07': 'point4_comp_07_comp',
+    'COMP_FAM_08': 'point4_comp_08_cat',
+    'COMP_LNG_08': 'point4_comp_08_comp',
+    'COMP_FAM_09': 'point4_comp_09_cat',
+    'COMP_LNG_09': 'point4_comp_09_comp',
+    'COMP_FAM_10': 'point4_comp_10_cat',
+    'COMP_LNG_10': 'point4_comp_10_comp',
 }
 
 DEFAULTS = {
     'CC_STATUT': 'Collaborateur',
-    'CC_TAD': 'Non',
+    'CC_TAD': 'Oui',
     'Motif/période de référence': 'Période de référence',
 }
 
