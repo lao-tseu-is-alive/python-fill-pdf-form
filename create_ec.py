@@ -2,27 +2,33 @@ import json
 import fitz  # PyMuPDF
 from pathlib import Path
 
-TEMPLATE = 'Formulaire_EC_template.pdf'  #
-INPUT_JSON = 'ec_data.json'              # données collaborateurs
+TEMPLATE = 'Formulaire_EC_template.pdf'
+INPUT_JSON = 'ec_data.json'
 OUTPUT_DIR = Path('ec_outputs')
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
 def fill_pdf(template_path: str, output_path: str, data: dict):
     doc = fitz.open(template_path)
+    processed_fields = set()  # Keep track of fields that have been processed
+
     for page in doc:
         widgets = page.widgets() or []
         for w in widgets:
             fname = w.field_name
-            if not fname:
+            if not fname or fname in processed_fields:
                 continue
+
             if fname in data and data[fname] is not None:
                 val = str(data[fname])
                 try:
+                    # This single line handles all field types, including radio groups
                     w.field_value = val
                     w.update()
+                    # Once a field (like a radio group) is set, add it to the processed set
+                    processed_fields.add(fname)
                 except Exception as e:
                     print(f"Warn: could not set {fname}: {e}")
-    doc.save(output_path)
+    doc.save(output_path, garbage=4, deflate=True, clean=True)
     doc.close()
 
 def load_json(path: str) -> list:
@@ -45,13 +51,15 @@ FIELD_MAP = {
     'DATE_ENTRETIEN_af_date': 'date_entretien',
     'Motif/période de référence': 'motif',
 
-    # Points clés (zone commentaires)
+    # Buts et responsabilites (dans les commentaires)
     'COM_03_A01': 'point3_buts_01',
     'COM_03_A02': 'point3_buts_02',
     'COM_03_A03': 'point3_buts_03',
     'COM_03_A04': 'point3_buts_04',
+    'COM_03_A05': 'point3_buts_05',
+    'COM_03_A06': 'point3_buts_06',
 
-    # Compétences (10 lignes commentées; étendre si vous voulez couvrir plus)
+    # Compétences
     'COMP_FAM_01': 'point4_comp_01_cat',
     'COMP_LNG_01': 'point4_comp_01_comp',
     'COMP_FAM_02': 'point4_comp_02_cat',
@@ -75,8 +83,8 @@ FIELD_MAP = {
 }
 
 DEFAULTS = {
-    'CC_STATUT': 'Collaborateur',
-    'CC_TAD': 'Oui',
+    'CC_STATUT': 'Collaborateur#B7trice', # Valeur corrigée
+    'CC_TAD': 'Non',
     'Motif/période de référence': 'Période de référence',
 }
 
@@ -84,7 +92,7 @@ def build_pdf_payload(collab: dict) -> dict:
     mapping = {}
     for pdf_field, json_key in FIELD_MAP.items():
         val = collab.get(json_key)
-        if (val is None or val == '') and pdf_field in DEFAULTS:
+        if (val is None or str(val).strip() == '') and pdf_field in DEFAULTS:
             val = DEFAULTS[pdf_field]
         mapping[pdf_field] = val
     return mapping
