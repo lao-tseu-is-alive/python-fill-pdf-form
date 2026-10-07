@@ -31,13 +31,35 @@ uv sync
     uv run create_ec.py
     ```
 
-4.  **Récupérez les PDF générés** : Les nouveaux fichiers PDF remplis seront créés dans le dossier `ec_outputs`.
+4.  **Récupérez les PDF générés** : Les nouveaux fichiers PDF remplis seront créés dans le dossier `ec_outputs`, sous le nom `<année>_Formulaire_EC_<filename_stub>.pdf`. L'année est celle de `periode_au` : les PDF d'une autre année ne sont donc pas écrasés.
+
+## Valeurs attendues dans le JSON
+
+| Clé | Valeurs | Remarque |
+|---|---|---|
+| `statut` | `cadre` ou `collaborateur-trice` | Casse et ponctuation ignorées (`Cadre`, `Collaborateur#B7trice` sont aussi acceptés). Par défaut : collaborateur·trice. |
+| `travail_distance` | `Oui` ou `Non` | Par défaut : `Non`. Détermine la présence de l'Annexe 1 (voir ci-dessous). |
+| `periode_du`, `periode_au`, `date_entretien` | `jj.mm.aaaa` | `periode_au` est obligatoire : il donne l'année du nom de fichier. |
+| `point4_comp_XX_cat` | `Personnelles`, `Méthodologiques`, `Relationnelles`, `Managériales` | Libellés exacts de la liste déroulante du formulaire (au pluriel). |
+
+Une valeur vide (`""`) laisse la valeur par défaut du modèle PDF.
+
+## Annexe 1 – Travail à distance
+
+Le formulaire comporte une page « ANNEXE 1 – Travail à distance » (page 10), qui ne concerne que les personnes en télétravail. Dans Acrobat, ce comportement est piloté par du JavaScript que PyMuPDF n'exécute pas ; le script le reproduit :
+
+- **`travail_distance` = `Oui`** : l'annexe est conservée et son en-tête (nom, poste, service, taux, matricule, dates, motif) est rempli à partir des mêmes données que la page 1. Le bouton « Voir ANNEXE 1 » de la page 1 est affiché.
+- **`travail_distance` = `Non`** : la page de l'annexe est supprimée (le PDF passe de 12 à 11 pages) et ses champs sont retirés proprement du formulaire. La page 8 indique « Document annexé « Travail à distance » : non ».
+
+Le nom et le poste de la personne sont aussi repris dans le bloc signatures de la page 8, qui partage ces champs avec l'annexe.
 
 ## Description des fichiers
 
 - **`create_ec.py`**: Le script principal qui lit les données du fichier JSON et remplit le formulaire PDF.
+- **`AGENTS.md`**: Notes techniques pour les agents de code (et les humains) : pièges de PyMuPDF et du modèle PDF, procédure de vérification.
+- **`pyproject.toml`** / **`uv.lock`**: Définition du projet et des dépendances pour uv.
 - **`Formulaire_EC_template.pdf`**: Le modèle de formulaire PDF à remplir.
-- **`ec_data.json`**: Fichier contenant les données des collaborateurs (ce fichier est ignoré par Git pour des raisons de confidentialité).
+- **`ec_data.json`**: Fichier contenant les données des collaborateurs. Ce fichier, les copies annuelles `ec_data_<année>.json`, le dossier `data/` et les dossiers `ec_outputs*/` sont ignorés par Git pour des raisons de confidentialité.
 - **`ec_data_anonymised.json`**: Un exemple de fichier de données avec des informations anonymisées.
 - **`list_fields_Pdf.py`**: Un script utilitaire pour lister tous les champs de formulaire d'un PDF, ce qui est très utile pour le mappage des champs.
 - **`field_list.txt`**: La sortie du script `list_fields_Pdf.py`, montrant les noms des champs du `Formulaire_EC_template.pdf`.
@@ -53,6 +75,3 @@ Pour utiliser ce script avec vos propres formulaires PDF, suivez ces étapes :
 ## Licence
 
 Ce projet est sous licence MIT. Voir le fichier `LICENSE` pour plus de détails.
-
-```
-```
