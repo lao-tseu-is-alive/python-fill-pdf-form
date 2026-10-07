@@ -209,3 +209,7 @@ __marimo__/
 
 .idea
 /ec_data.json
+# Données personnelles et PDF générés (confidentiel)
+/data/
+/ec_data_2*.json
+/ec_outputs*/

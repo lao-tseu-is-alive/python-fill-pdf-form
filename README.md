@@ -13,11 +13,11 @@ Ce projet est un exemple de script Python qui permet de remplir automatiquement 
 
 ## Prérequis
 
-Avant de lancer le script, assurez-vous d'avoir Python installé sur votre machine. Vous devrez également installer la bibliothèque `PyMuPDF`.
+Le projet est géré avec [uv](https://docs.astral.sh/uv/) (Python 3.13, dépendance `PyMuPDF`). Pour installer l'environnement :
 
 ```bash
-pip install PyMuPDF
-````
+uv sync
+```
 
 ## Utilisation
 
@@ -28,7 +28,7 @@ pip install PyMuPDF
 3.  **Lancez le script** : Exécutez le script `create_ec.py` depuis votre terminal.
 
     ```bash
-    python create_ec.py
+    uv run create_ec.py
     ```
 
 4.  **Récupérez les PDF générés** : Les nouveaux fichiers PDF remplis seront créés dans le dossier `ec_outputs`.

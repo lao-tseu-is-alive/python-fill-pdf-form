@@ -1,8 +1,8 @@
-import fitz  # PyMuPDF
+import pymupdf
 
 form_template = 'Formulaire_EC_template.pdf'
 
-doc = fitz.open(form_template)
+doc = pymupdf.open(form_template)
 print("page, field_label, field_name, field_type, field_type_string, field_value, choice_values, button_states")
 for page in doc:
 

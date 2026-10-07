@@ -1,0 +1,8 @@
+[project]
+name = "python-fill-pdf-form"
+version = "0.1.0"
+description = "Remplissage automatisé du formulaire PDF d'entretien de collaboration"
+requires-python = ">=3.13"
+dependencies = [
+    "pymupdf>=1.26.4",
+]

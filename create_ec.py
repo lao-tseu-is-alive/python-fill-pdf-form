@@ -1,33 +1,89 @@
 import json
-import fitz  # PyMuPDF
+import re
+import pymupdf
 from pathlib import Path
 
 TEMPLATE = 'Formulaire_EC_template.pdf'
 INPUT_JSON = 'ec_data.json'
 OUTPUT_DIR = Path('ec_outputs')
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+TAD_ANNEX_FIELD = 'P1.ANNEXE1.COM_POSITIF'  # only on the "ANNEXE 1 – Travail à distance" page (Nom_2/Poste_2 are also on page 8)
+TAD_ANNEX_LINK_FIELD = 'SI_TAD_O'     # "Voir ANNEXE 1" button, shown by Acrobat JS only when CC_TAD == Oui
+
+def normalize_state(s: str) -> str:
+    # 'Collaborateur#B7trice', 'collaborateur-trice' -> 'collaborateurtrice' ; 'Cadre' -> 'cadre'
+    return re.sub(r'[^a-z]', '', s.lower().replace('#b7', ''))
+
+def set_radio(doc, fname: str, kids: list, value: str):
+    # PyMuPDF turns ON any radio widget given a non-empty value, and cannot write
+    # names such as 'Collaborateur#B7trice': set /AS of each kid and /V of the group directly.
+    target = normalize_state(value)
+    on_states = {on for _, on in kids}
+    chosen = next((s for s in on_states if normalize_state(s) == target), None)
+    if chosen is None:
+        print(f"Warn: no option matching '{value}' for {fname} (options: {sorted(on_states)})")
+        return
+    for xref, on in kids:
+        doc.xref_set_key(xref, 'AS', f'/{chosen}' if on == chosen else '/Off')
+        doc.xref_set_key(parent_xref(doc, xref) or xref, 'V', f'/{chosen}')
+
+def parent_xref(doc, xref: int) -> int | None:
+    parent = doc.xref_get_key(xref, 'Parent')
+    return int(parent[1].split()[0]) if parent[0] == 'xref' else None
+
+def pdf_refs(array: str) -> list[int]:
+    # '[12 0 R 34 0 R]' -> [12, 34]
+    return [int(x) for x in re.findall(r'(\d+) 0 R', array)]
+
+def detach_field(doc, xref: int):
+    # Remove a field from its parent's /Kids (or from /AcroForm /Fields), pruning parents left empty,
+    # so that deleting a page does not leave orphan fields pointing to it.
+    parent = parent_xref(doc, xref)
+    # xref_set_key() cannot write through a path such as 'AcroForm/Fields': resolve the AcroForm object
+    holder, key = (parent, 'Kids') if parent else (pdf_refs(doc.xref_get_key(doc.pdf_catalog(), 'AcroForm')[1])[0], 'Fields')
+    kids = [k for k in pdf_refs(doc.xref_get_key(holder, key)[1]) if k != xref]
+    if parent and not kids:
+        detach_field(doc, parent)
+    else:
+        doc.xref_set_key(holder, key, '[' + ' '.join(f'{k} 0 R' for k in kids) + ']')
+
+def adjust_tad_annex(doc, teletravail: bool):
+    annex = next(p.number for p in doc for w in p.widgets() if w.field_name == TAD_ANNEX_FIELD)
+    links = [w.xref for p in doc for w in p.widgets() if w.field_name == TAD_ANNEX_LINK_FIELD]
+    if teletravail:
+        for xref in links:
+            doc.xref_set_key(xref, 'F', '4')  # print, no longer hidden
+        return
+    for xref in links:
+        doc.xref_set_key(xref, 'AA', 'null')  # drop the GoTo towards the removed page
+    for xref in [w.xref for w in doc[annex].widgets()]:
+        detach_field(doc, xref)
+    doc.delete_page(annex)
 
 def fill_pdf(template_path: str, output_path: str, data: dict):
-    doc = fitz.open(template_path)
-    processed_fields = set()  # Keep track of fields that have been processed
+    doc = pymupdf.open(template_path)
+    radio_groups = {}  # field name -> [(xref, on_state)] of every kid of the group (across pages)
 
     for page in doc:
         widgets = page.widgets() or []
         for w in widgets:
             fname = w.field_name
-            if not fname or fname in processed_fields:
+            if not fname or data.get(fname) in (None, ''):  # empty: keep the template's value
                 continue
 
-            if fname in data and data[fname] is not None:
-                val = str(data[fname])
-                try:
-                    # This single line handles all field types, including radio groups
-                    w.field_value = val
-                    w.update()
-                    # Once a field (like a radio group) is set, add it to the processed set
-                    processed_fields.add(fname)
-                except Exception as e:
-                    print(f"Warn: could not set {fname}: {e}")
+            if w.field_type == pymupdf.PDF_WIDGET_TYPE_RADIOBUTTON:
+                radio_groups.setdefault(fname, []).append((w.xref, w.on_state()))
+                continue
+
+            try:
+                w.field_value = str(data[fname])
+                w.update()
+            except Exception as e:
+                print(f"Warn: could not set {fname}: {e}")
+
+    for fname, kids in radio_groups.items():
+        set_radio(doc, fname, kids, str(data[fname]))
+    adjust_tad_annex(doc, normalize_state(str(data.get('CC_TAD', ''))) == 'oui')
     doc.save(output_path, garbage=4, deflate=True, clean=True)
     doc.close()
 
@@ -50,6 +106,17 @@ FIELD_MAP = {
     'DATE_PERIODE_AU_af_date': 'periode_au',
     'DATE_ENTRETIEN_af_date': 'date_entretien',
     'Motif/période de référence': 'motif',
+
+    # Annexe 1 (travail à distance) : en-tête recopié par JavaScript Acrobat, que PyMuPDF n'exécute pas
+    'P1.ANNEXE1.Nom_2': 'nom_prenom',
+    'P1.ANNEXE1.Poste_2': 'poste',
+    'P1.ANNEXE1.Service_2': 'service',
+    'P1.ANNEXE1.Taux_2': 'taux',
+    'P1.ANNEXE1.PERNR_2': 'salarie_num',
+    'P1.ANNEXE1.DATE_PERIODE_DU_2_af_date': 'periode_du',
+    'P1.ANNEXE1.DATE_PERIODE_AU_2_af_date': 'periode_au',
+    'P1.ANNEXE1.DATE_ENTRETIEN_2_af_date': 'date_entretien',
+    'P1.ANNEXE1.PERIODE_REF': 'motif',
 
     # Buts et responsabilites (dans les commentaires)
     'COM_03_A01': 'point3_buts_01',
@@ -87,6 +154,7 @@ DEFAULTS = {
     'CC_TAD': 'Non',
     'Motif/période de référence': 'Période de référence',
 }
+DEFAULTS['P1.ANNEXE1.PERIODE_REF'] = DEFAULTS['Motif/période de référence']
 
 def build_pdf_payload(collab: dict) -> dict:
     mapping = {}
@@ -101,7 +169,10 @@ def main():
     payload = load_json(INPUT_JSON)
     for collab in payload:
         stub = collab.get('filename_stub') or collab.get('nom_prenom', 'collaborateur').replace(' ', '_')
-        out_path = OUTPUT_DIR / f"2025_Formulaire_EC_{stub}.pdf"
+        year = str(collab.get('periode_au', '')).strip()[-4:]
+        if not year.isdigit():
+            raise ValueError(f"{stub}: 'periode_au' must be a date dd.mm.yyyy, got {collab.get('periode_au')!r}")
+        out_path = OUTPUT_DIR / f"{year}_Formulaire_EC_{stub}.pdf"
         pdf_data = build_pdf_payload(collab)
         fill_pdf(TEMPLATE, str(out_path), pdf_data)
         print(f"Generated: {out_path}")
