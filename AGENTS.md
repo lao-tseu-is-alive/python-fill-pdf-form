@@ -46,3 +46,9 @@ Toujours vérifier le résultat réel, pas seulement l'absence d'erreur :
 - compter les widgets orphelins : il ne doit pas y en avoir plus que les 26 du modèle ;
 - comparer les champs remplis avec les PDF de l'année précédente (`ec_outputs_<année>/`) pour détecter une perte de données ;
 - en cas de doute, faire un rendu de page (`page.get_pixmap(...)`) et le regarder.
+
+## Pistes d'amélioration (prochaine itération)
+
+- **Script de vérification `check_ec.py`** : automatiser les contrôles ci-dessus (états `/AS` des radios comparés au JSON, nombre de pages selon le télétravail, présence de la page 8, nombre de widgets orphelins, comparaison champ par champ avec `ec_outputs_<année précédente>/`), lançable par `uv run check_ec.py` après chaque génération. Ces contrôles, faits à la main en 2026, ont révélé que tous les PDF 2025 avaient un statut et un télétravail erronés.
+- Régénérer `field_list.txt` avec la version actuelle de PyMuPDF (seul le format d'affichage des pages a changé).
+- Supprimer ou utiliser la clé JSON `pernr`, actuellement ignorée (le champ `PERNR` est rempli par `salarie_num`).
